@@ -1,0 +1,13 @@
+.pio
+.vscode
+.git
+__pycache__
+*.pyc
+*.bin
+*.elf
+*.o
+*.d
+node_modules
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,57 @@
+#!/bin/sh
+# Commit message hook - ensures commit messages follow conventions
+# Enforces conventional commits format for better changelog generation
+
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Colors
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# Conventional commits pattern
+# Format: type(scope): description
+# Example: feat(esp32): add deep sleep mode
+PATTERN="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9_-]+\))?: .{10,}"
+
+if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
+    echo "${RED}========================================"
+    echo "  Invalid Commit Message Format"
+    echo "========================================${NC}"
+    echo ""
+    echo "Commit message must follow conventional commits format:"
+    echo ""
+    echo "  ${YELLOW}type(scope): description${NC}"
+    echo ""
+    echo "Types:"
+    echo "  feat:     New feature"
+    echo "  fix:      Bug fix"
+    echo "  docs:     Documentation changes"
+    echo "  style:    Code style changes (formatting)"
+    echo "  refactor: Code refactoring"
+    echo "  perf:     Performance improvements"
+    echo "  test:     Adding or updating tests"
+    echo "  build:    Build system changes"
+    echo "  ci:       CI/CD changes"
+    echo "  chore:    Other changes (dependencies, etc)"
+    echo ""
+    echo "Examples:"
+    echo "  ${YELLOW}feat(esp32): add WiFi reconnection logic${NC}"
+    echo "  ${YELLOW}fix(sensors): correct temperature calibration${NC}"
+    echo "  ${YELLOW}perf(bluetooth): optimize BLE advertising interval${NC}"
+    echo ""
+    echo "Your message:"
+    echo "  $COMMIT_MSG"
+    echo ""
+    echo "${RED}Please update your commit message and try again${NC}"
+    exit 1
+fi
+
+# Check minimum description length
+DESCRIPTION=$(echo "$COMMIT_MSG" | head -n1 | sed -E 's/^[^:]+: //')
+if [ ${#DESCRIPTION} -lt 10 ]; then
+    echo "${YELLOW}[WARNING]${NC} Commit description is very short. Consider adding more detail."
+fi
+
+exit 0

@@ -1,0 +1,39 @@
+# Personal configuration files - not for public repo
+scripts/.bashrc
+scripts/PowerShell_Profile.ps1
+scripts/team-setup.bat
+scripts/backup-projects.bat
+scripts/setup-scheduled-tasks.bat
+scripts/setup-mcp-servers.bat
+scripts/optimize-build-cache.bat
+
+# Build artifacts
+*.pyc
+__pycache__/
+.pytest_cache/
+.tox/
+
+# IDEs
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+venv/
+env/
+
+# Temporary files
+temp/
+tmp/
+*.tmp

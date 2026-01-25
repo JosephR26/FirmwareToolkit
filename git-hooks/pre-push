@@ -1,0 +1,81 @@
+#!/bin/sh
+# Pre-push hook for ESP32/embedded firmware projects
+# This hook runs before pushing to remote to ensure quality
+
+echo "========================================"
+echo "  Pre-Push Validation"
+echo "========================================"
+
+# Check if this is a PlatformIO project
+if [ ! -f "platformio.ini" ]; then
+    echo "[INFO] Not a PlatformIO project - skipping firmware checks"
+    exit 0
+fi
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# Get the default environment
+DEFAULT_ENV=$(grep "default_envs" platformio.ini | cut -d'=' -f2 | tr -d ' ' | head -n1)
+if [ -z "$DEFAULT_ENV" ]; then
+    DEFAULT_ENV=$(grep "^\[env:" platformio.ini | head -n1 | sed 's/\[env://;s/\]//')
+fi
+
+echo "[INFO] Running comprehensive checks before push..."
+echo "[INFO] Environment: $DEFAULT_ENV"
+
+# Check 1: Full build
+echo ""
+echo "[CHECK 1/3] Full clean build..."
+pio run --environment "$DEFAULT_ENV" --target clean > /dev/null 2>&1
+if pio run --environment "$DEFAULT_ENV" > /tmp/pio-push-build.log 2>&1; then
+    echo "${GREEN}[PASS]${NC} Clean build successful"
+else
+    echo "${RED}[FAIL]${NC} Build failed!"
+    cat /tmp/pio-push-build.log
+    exit 1
+fi
+
+# Check 2: Run tests if they exist
+echo ""
+echo "[CHECK 2/3] Running tests..."
+if [ -d "test" ] && [ "$(ls -A test)" ]; then
+    if pio test --environment "$DEFAULT_ENV" > /tmp/pio-push-test.log 2>&1; then
+        echo "${GREEN}[PASS]${NC} All tests passed"
+    else
+        echo "${RED}[FAIL]${NC} Tests failed!"
+        cat /tmp/pio-push-test.log
+        echo ""
+        echo "${RED}Please fix failing tests before pushing${NC}"
+        exit 1
+    fi
+else
+    echo "${YELLOW}[SKIP]${NC} No tests found in test/ directory"
+fi
+
+# Check 3: Static analysis (if check tool is available)
+echo ""
+echo "[CHECK 3/3] Static code analysis..."
+if pio check --help > /dev/null 2>&1; then
+    if pio check --environment "$DEFAULT_ENV" --severity=high > /tmp/pio-push-check.log 2>&1; then
+        echo "${GREEN}[PASS]${NC} No high-severity issues found"
+    else
+        echo "${YELLOW}[WARNING]${NC} Static analysis found issues:"
+        cat /tmp/pio-push-check.log
+        echo ""
+        echo "Review warnings above (not blocking push)"
+    fi
+else
+    echo "${YELLOW}[SKIP]${NC} PlatformIO Check not available"
+fi
+
+echo ""
+echo "${GREEN}========================================"
+echo "  Pre-Push Validation PASSED"
+echo "========================================${NC}"
+echo ""
+echo "Proceeding with push..."
+exit 0

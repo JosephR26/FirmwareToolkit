@@ -1,0 +1,170 @@
+# GitHub Actions Workflow for ESP32 Firmware
+# This workflow automatically builds and tests ESP32 firmware on every push/PR
+#
+# To use: Copy this file to your project's .github/workflows/ directory
+
+name: ESP32 Firmware CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  PLATFORMIO_ENV: esp32dev  # Change this to match your environment
+
+jobs:
+  build:
+    name: Build Firmware
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for better analysis
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Cache PlatformIO
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.platformio
+          .pio
+        key: ${{ runner.os }}-platformio-${{ hashFiles('**/platformio.ini') }}
+        restore-keys: |
+          ${{ runner.os }}-platformio-
+
+    - name: Install PlatformIO
+      run: |
+        python -m pip install --upgrade pip
+        pip install platformio
+
+    - name: Build firmware
+      run: |
+        echo "Building firmware for $PLATFORMIO_ENV..."
+        pio run --environment $PLATFORMIO_ENV
+
+    - name: Check firmware size
+      run: |
+        echo "Firmware size analysis:"
+        pio run --target size --environment $PLATFORMIO_ENV
+
+    - name: Upload firmware artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: firmware-${{ github.sha }}
+        path: .pio/build/${{ env.PLATFORMIO_ENV }}/firmware.bin
+        retention-days: 30
+
+    - name: Upload firmware ELF (for debugging)
+      uses: actions/upload-artifact@v4
+      with:
+        name: firmware-elf-${{ github.sha }}
+        path: .pio/build/${{ env.PLATFORMIO_ENV }}/firmware.elf
+        retention-days: 7
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Cache PlatformIO
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.platformio
+          .pio
+        key: ${{ runner.os }}-platformio-${{ hashFiles('**/platformio.ini') }}
+
+    - name: Install PlatformIO
+      run: pip install platformio
+
+    - name: Run unit tests
+      run: |
+        if [ -d "test" ]; then
+          echo "Running unit tests..."
+          pio test --environment $PLATFORMIO_ENV
+        else
+          echo "No tests found - skipping"
+        fi
+      continue-on-error: true
+
+  static-analysis:
+    name: Static Code Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install PlatformIO
+      run: pip install platformio
+
+    - name: Run static analysis
+      run: |
+        echo "Running static code analysis..."
+        pio check --environment $PLATFORMIO_ENV --severity=medium || true
+      continue-on-error: true
+
+    - name: Check for secrets in code
+      run: |
+        echo "Checking for hardcoded secrets..."
+        if grep -r -i "password\s*=\s*\"" src/ include/ 2>/dev/null; then
+          echo "::error::Hardcoded credentials detected!"
+          exit 1
+        fi
+        echo "No hardcoded secrets found"
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build, test, static-analysis]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download firmware artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: firmware-${{ github.sha }}
+        path: ./release
+
+    - name: Get version from commit
+      id: version
+      run: |
+        VERSION=$(git describe --tags --always)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: ./release/firmware.bin
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
