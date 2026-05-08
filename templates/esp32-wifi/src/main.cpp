@@ -24,7 +24,7 @@
 // Function prototypes
 void setup();
 void loop();
-void connectToWiFi();
+bool connectToWiFi(uint8_t maxAttempts = 5);
 void printSystemInfo();
 void printWiFiInfo();
 
@@ -49,7 +49,9 @@ void setup() {
     WiFi.setAutoReconnect(true);
 
     // Connect to WiFi
-    connectToWiFi();
+    if (!connectToWiFi()) {
+        Serial.println("[ERROR] Could not connect to WiFi after all attempts");
+    }
 
     Serial.println("\n[INFO] Setup complete!");
     Serial.println("========================================\n");
@@ -63,7 +65,7 @@ void loop() {
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("[WARNING] WiFi disconnected - attempting reconnection...");
         digitalWrite(LED_PIN, HIGH);
-        connectToWiFi();
+        connectToWiFi(3);
     } else {
         // WiFi connected - slow blink
         digitalWrite(LED_PIN, HIGH);
@@ -87,35 +89,42 @@ void loop() {
 }
 
 /**
- * Connect to WiFi with timeout and retry logic
+ * Connect to WiFi with timeout and bounded retry logic
  */
-void connectToWiFi() {
-    Serial.println("\n[WiFi] Connecting...");
-    Serial.print("  SSID: ");
-    Serial.println(WIFI_SSID);
+bool connectToWiFi(uint8_t maxAttempts) {
+    for (uint8_t attempt = 1; attempt <= maxAttempts; attempt++) {
+        Serial.printf("\n[WiFi] Connecting (attempt %u/%u)...\n", attempt, maxAttempts);
+        Serial.print("  SSID: ");
+        Serial.println(WIFI_SSID);
 
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+        WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-    uint32_t startAttempt = millis();
+        uint32_t startAttempt = millis();
+        while (WiFi.status() != WL_CONNECTED &&
+               (millis() - startAttempt) < WIFI_TIMEOUT_MS) {
+            digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+            delay(500);
+            Serial.print(".");
+        }
 
-    while (WiFi.status() != WL_CONNECTED &&
-           (millis() - startAttempt) < WIFI_TIMEOUT_MS) {
-        digitalWrite(LED_PIN, !digitalRead(LED_PIN)); // Fast blink while connecting
-        delay(500);
-        Serial.print(".");
+        if (WiFi.status() == WL_CONNECTED) {
+            Serial.println("\n[WiFi] Connected!");
+            printWiFiInfo();
+            digitalWrite(LED_PIN, HIGH);
+            return true;
+        }
+
+        Serial.println("\n[WiFi] Attempt failed.");
+        WiFi.disconnect(true);
+        if (attempt < maxAttempts) {
+            Serial.printf("  Retrying in %u ms...\n", WIFI_RETRY_DELAY_MS);
+            delay(WIFI_RETRY_DELAY_MS);
+        }
     }
 
-    if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("\n[WiFi] Connected!");
-        printWiFiInfo();
-        digitalWrite(LED_PIN, HIGH);
-    } else {
-        Serial.println("\n[WiFi] Connection failed!");
-        Serial.println("  Retrying in 5 seconds...");
-        digitalWrite(LED_PIN, LOW);
-        delay(WIFI_RETRY_DELAY_MS);
-        connectToWiFi(); // Recursive retry
-    }
+    Serial.println("[WiFi] All connection attempts exhausted.");
+    digitalWrite(LED_PIN, LOW);
+    return false;
 }
 
 /**

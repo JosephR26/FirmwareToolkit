@@ -19,8 +19,11 @@ class SerialPortManager:
     def load_config(self):
         """Load configuration from file"""
         if os.path.exists(self.config_file):
-            with open(self.config_file, 'r') as f:
-                return json.load(f)
+            try:
+                with open(self.config_file, 'r') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, OSError):
+                pass
         return {"favorites": [], "history": [], "default": None}
 
     def save_config(self):

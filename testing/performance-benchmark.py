@@ -71,7 +71,7 @@ class PerformanceBenchmark:
                         try:
                             mem = int(''.join(filter(str.isdigit, line)))
                             self.metrics['memory_readings'].append(mem)
-                        except:
+                        except ValueError:
                             pass
 
                     # WiFi RSSI
@@ -79,7 +79,7 @@ class PerformanceBenchmark:
                         try:
                             rssi = int(''.join(c for c in line if c.isdigit() or c == '-'))
                             self.metrics['wifi_rssi'].append(rssi)
-                        except:
+                        except ValueError:
                             pass
 
                     # Loop time
@@ -87,13 +87,13 @@ class PerformanceBenchmark:
                         try:
                             loop_time = float(''.join(c for c in line if c.isdigit() or c == '.'))
                             self.metrics['loop_times'].append(loop_time)
-                        except:
+                        except ValueError:
                             pass
 
             except KeyboardInterrupt:
                 print("\n[INFO] Benchmark interrupted by user")
                 break
-            except:
+            except Exception:
                 pass
 
         self.serial.close()

@@ -134,7 +134,7 @@ class SerialTester:
                 try:
                     mem = int(''.join(filter(str.isdigit, line)))
                     memory_readings.append(mem)
-                except:
+                except ValueError:
                     pass
 
         if len(memory_readings) >= 2:
