@@ -2,6 +2,13 @@
 
 Optimized prompts for working with Claude, ChatGPT, Grok, Manus AI, Gemini, and DeepSeek on firmware projects.
 
+> **Claude models (2025–2026):** Claude 4.x is the current family.
+> - **Opus 4** (`claude-opus-4-7`) — highest capability, best for complex reasoning
+> - **Sonnet 4** (`claude-sonnet-4-6`) — balanced speed/capability, recommended default
+> - **Haiku 4** (`claude-haiku-4-5`) — fastest, lightest tasks
+>
+> Use Claude Code CLI (`claude`) or the [ESP32 DevOps MCP](https://github.com/JosephR26/esp32-devops-mcp) for hands-on development.
+
 ## 🤖 Claude Code (Primary Development Assistant)
 
 ### Project Setup
